@@ -3,6 +3,7 @@ __pycache__/
 .idea/
 .tmp/
 .vscode/
+/datasets/
 bdd/
 runs/
 inference/
