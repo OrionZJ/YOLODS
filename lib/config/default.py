@@ -50,10 +50,10 @@ _C.LOSS.LL_IOU_GAIN = 0.2 # lane line iou loss gain
 
 # DATASET related params
 _C.DATASET = CN(new_allowed=True)
-_C.DATASET.DATAROOT = 'E:/PycharmProjects/YOLOP/dataset/images'       # the path of images folder
-_C.DATASET.LABELROOT = 'E:/PycharmProjects/YOLOP/dataset/det_annotations'      # the path of det_annotations folder
-_C.DATASET.MASKROOT = 'E:/PycharmProjects/YOLOP/dataset/da_seg_annotations'                # the path of da_seg_annotations folder
-_C.DATASET.LANEROOT = 'E:/PycharmProjects/YOLOP/dataset/ll_seg_annotations'               # the path of ll_seg_annotations folder
+_C.DATASET.DATAROOT = 'E:/PycharmProjects/BDD100K_datasets/images'       # the path of images folder
+_C.DATASET.LABELROOT = 'E:/PycharmProjects/BDD100K_datasets/det_annotations'      # the path of det_annotations folder
+_C.DATASET.MASKROOT = 'E:/PycharmProjects/BDD100K_datasets/da_seg_annotations'                # the path of da_seg_annotations folder
+_C.DATASET.LANEROOT = 'E:/PycharmProjects/BDD100K_datasets/ll_seg_annotations'               # the path of ll_seg_annotations folder
 _C.DATASET.DATASET = 'BddDataset'
 _C.DATASET.TRAIN_SET = 'train'
 _C.DATASET.TEST_SET = 'val'
