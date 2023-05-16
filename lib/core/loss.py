@@ -108,7 +108,9 @@ class MultiHeadLoss(nn.Module):
             lobj += BCEobj(pi[..., 4], tobj) * balance[i]  # obj loss
 
         drive_area_seg_predicts = predictions[1].view(-1)
+        # print(drive_area_seg_predicts)
         drive_area_seg_targets = targets[1].view(-1)
+        # print(drive_area_seg_targets)
         lseg_da = BCEseg(drive_area_seg_predicts, drive_area_seg_targets)
 
         lane_line_seg_predicts = predictions[2].view(-1)

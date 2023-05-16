@@ -11,7 +11,7 @@ sys.path.append(os.getcwd())
 from lib.utils import initialize_weights
 # from lib.models.common2 import DepthSeperabelConv2d as Conv
 # from lib.models.common2 import SPP, Bottleneck, BottleneckCSP, Focus, Concat, Detect
-from lib.models.common import Conv, SPP, Bottleneck, BottleneckCSP, Focus, Concat, Detect, SharpenConv
+from lib.models.common import Conv, SPP, Bottleneck, BottleneckCSP, Focus, Concat, Detect, SharpenConv, C2f, SPPF
 from torch.nn import Upsample
 from lib.utils import check_anchor_order
 from lib.core.evaluate import SegmentationMetric
@@ -467,27 +467,28 @@ YOLOP = [
 [ [-1, 6], Concat, [1]],    #12
 [ -1, BottleneckCSP, [512, 256, 1, False]], #13
 [ -1, Conv, [256, 128, 1, 1]],  #14
-[ -1, Upsample, [None, 2, 'nearest']],  #15
+[ -1, Upsample, [None, 2, 'nearest']],  #15  1/4
 [ [-1,4], Concat, [1]],     #16         #Encoder
 
 [ -1, BottleneckCSP, [256, 128, 1, False]],     #17
-[ -1, Conv, [128, 128, 3, 2]],      #18
+[ -1, Conv, [128, 128, 3, 2]],      #18  1/8
 [ [-1, 14], Concat, [1]],       #19
 [ -1, BottleneckCSP, [256, 256, 1, False]],     #20
-[ -1, Conv, [256, 256, 3, 2]],      #21
+[ -1, Conv, [256, 256, 3, 2]],      #21  1/16
 [ [-1, 10], Concat, [1]],   #22
 [ -1, BottleneckCSP, [512, 512, 1, False]],     #23
 [ [17, 20, 23], Detect,  [1, [[3,9,5,11,4,20], [7,18,6,39,12,31], [19,50,38,81,68,157]], [128, 256, 512]]], #Detection head 24
 
-[ 16, Conv, [256, 128, 3, 1]],   #25
-[ -1, Upsample, [None, 2, 'nearest']],  #26
+[ 16, Conv, [256, 128, 3, 1]],   #25  1/4 - 2
+[ -1, Upsample, [None, 2, 'nearest']],  #26  1/2 -4
 [ -1, BottleneckCSP, [128, 64, 1, False]],  #27
-[ -1, Conv, [64, 32, 3, 1]],    #28
-[ -1, Upsample, [None, 2, 'nearest']],  #29
-[ -1, Conv, [32, 16, 3, 1]],    #30
+[ -1, Conv, [64, 32, 3, 1]],    #28  1/2 - 6
+[ -1, Upsample, [None, 2, 'nearest']],  #29  1 - 12
+[ -1, Conv, [32, 16, 3, 1]],    #30  1 - 14
 [ -1, BottleneckCSP, [16, 8, 1, False]],    #31
-[ -1, Upsample, [None, 2, 'nearest']],  #32
-[ -1, Conv, [8, 2, 3, 1]], #33 Driving area segmentation head
+[ -1, Upsample, [None, 2, 'nearest']],  #32  2 - 28
+[ -1, Conv, [8, 2, 3, 1]], #33 2 - 30
+    # Driving area segmentation head
 
 [ 16, Conv, [256, 128, 3, 1]],   #34
 [ -1, Upsample, [None, 2, 'nearest']],  #35
@@ -500,6 +501,265 @@ YOLOP = [
 [ -1, Conv, [8, 2, 3, 1]] #42 Lane line segmentation head
 ]
 
+# The lane line and the driving area segment branches without share information with each other and without link
+YOLODSn = [
+    [45, 65, 85],   #Det_out_idx, Da_Segout_idx, LL_Segout_idx
+    [-1, Focus, [3, 32, 3]],    # 0 p1
+    [-1, Conv, [32, 64, 3, 2]],     # 1  1/2
+    [-1, Conv, [64, 128, 1, 1]],    # 2 p2
+    [-1, C2f, [128, 128, True]],     # 3
+    [-1, C2f, [128, 128, True]],     # 4
+    [-1, C2f, [128, 128, True]],     # 5
+    [-1, Conv, [128, 256, 3, 2]],    # 6 p3  1/4
+    [-1, C2f, [256, 256, True]],     # 7
+    [-1, C2f, [256, 256, True]],     # 8
+    [-1, C2f, [256, 256, True]],     # 9
+    [-1, C2f, [256, 256, True]],     # 10
+    [-1, C2f, [256, 256, True]],     # 11
+    [-1, C2f, [256, 256, True]],     # 12
+    [-1, Conv, [256, 512, 3, 2]],    # 13 p4  1/8
+    [-1, C2f, [512, 512, True]],     # 14
+    [-1, C2f, [512, 512, True]],     # 15
+    [-1, C2f, [512, 512, True]],     # 16
+    [-1, C2f, [512, 512, True]],     # 17
+    [-1, C2f, [512, 512, True]],     # 18
+    [-1, C2f, [512, 512, True]],     # 19
+    [-1, Conv, [512, 1024, 3, 2]],   # 20 p5  1/16
+    [-1, C2f, [1024, 1024, True]],    # 21
+    [-1, C2f, [1024, 1024, True]],    # 22
+    [-1, C2f, [1024, 1024, True]],    # 23
+    [-1, SPPF, [1024, 1024, 5]],      # 24
+
+    [-1, nn.Upsample, [None, 2, 'nearest']],      #25  1/8
+    [[-1, 19], Concat, [1]],        #26  # cat backbone P4
+    [-1, C2f, [1536, 512]],       # 27
+    [-1, C2f, [512, 512]],       # 28
+    [-1, C2f, [512, 512]],       # 29
+
+    [-1, nn.Upsample, [None, 2, 'nearest']],        # 30  1/4
+    [[-1, 12], Concat, [1]],     # 31 # cat backbone P3
+    [-1, C2f, [768, 256]],       # 32
+    [-1, C2f, [256, 256]],       # 33
+    [-1, C2f, [256, 256]],       # 34
+
+    [-1, Conv, [256, 256, 3, 2]],        # 35  1/8
+    [[-1, 29], Concat, [1]],        # 36
+    [-1, C2f, [768, 512]],       # 37
+    [-1, C2f, [512, 512]],       # 38
+    [-1, C2f, [512, 512]],       # 39
+
+    [-1, Conv, [512, 512, 3, 2]],        # 40  1/16
+    [[-1, 24], Concat, [1]],        # 41  # cat head P5
+    [-1, C2f, [1536, 1024]],      # 42
+    [-1, C2f, [1024, 1024]],      # 43
+    [-1, C2f, [1024, 1024]],      # 44
+
+    [ [34, 39, 44], Detect,
+      [1, [[3,9,5,11,4,20], [7,18,6,39,12,31], [19,50,38,81,68,157]],
+       [256, 512, 1024]]], #Detection head 45
+
+    # seg drive area
+    [24, nn.Upsample, [None, 2, 'nearest']],  # 46  1/8
+    [[-1, 19], Concat, [1]],  # 47  # cat backbone P4
+    [-1, C2f, [1536, 512]],  # 48
+    [-1, C2f, [512, 512]],  # 49
+    [-1, C2f, [512, 512]],  # 50
+
+    [-1, nn.Upsample, [None, 2, 'nearest']],  # 51  1/4
+    [[-1, 12], Concat, [1]],  # 52 # cat backbone P3
+    [-1, Conv, [768, 256, 3, 1]],   # 53 1/4 - 2
+
+    [-1, C2f, [256, 256]],  # 54
+    [-1, nn.Upsample, [None, 2, 'nearest']],    # 55 1/2 - 4
+    [-1, Conv, [256, 256, 3, 1]],   # 56  1/2 - 6
+
+    [-1, C2f, [256, 256]],  # 57
+    [-1, Upsample, [None, 2, 'nearest']],  # 58  1 - 12
+    [-1, Conv, [256, 256, 3, 1]],   # 59 1 - 14
+    [-1, C2f, [256, 256]],  # 60
+
+    [-1, Upsample, [None, 2, 'nearest']],  # 61  2 - 28
+    [-1, Conv, [256, 256, 3, 1]],  # 62 2 - 30
+    [-1, C2f, [256, 512]],  # 63
+    [-1, C2f, [512, 512]],  # 64
+    [-1, C2f, [512, 512]],  # 65
+
+
+    #seg lane line
+    [24, nn.Upsample, [None, 2, 'nearest']],  # 66  1/8
+    [[-1, 19], Concat, [1]],  # 67  # cat backbone P4
+    [-1, C2f, [1536, 512]],  # 68
+    [-1, C2f, [512, 512]],  # 69
+    [-1, C2f, [512, 512]],  # 70
+
+    [-1, nn.Upsample, [None, 2, 'nearest']],  # 71  1/4
+    [[-1, 12], Concat, [1]],  # 72 # cat backbone P3
+    [-1, Conv, [768, 256, 3, 1]],  # 73 1/4 - 2
+
+    [-1, C2f, [256, 256]],  # 74
+    [-1, nn.Upsample, [None, 2, 'nearest']],  # 75 1/2 - 4
+    [-1, Conv, [256, 256, 3, 1]],  # 76  1/2 - 6
+
+    [-1, C2f, [256, 256]],  # 77
+    [-1, Upsample, [None, 2, 'nearest']],  # 78  1 - 12
+    [-1, Conv, [256, 256, 3, 1]],  # 79 1 - 14
+    [-1, C2f, [256, 256]],  # 80
+
+    [-1, Upsample, [None, 2, 'nearest']],  # 61  2 - 28
+    [-1, Conv, [256, 256, 3, 1]],  # 62 2 - 30
+    [-1, C2f, [256, 512]],  # 63
+    [-1, C2f, [512, 512]],  # 64
+    [-1, C2f, [512, 512]],  # 65
+]
+
+YOLODSs = [
+    [25, 41, 57],   #Det_out_idx, Da_Segout_idx, LL_Segout_idx
+    [-1, Focus, [3, 32, 3]],    # 0 p1
+    [-1, Conv, [32, 64, 3, 2]],     # 1  1/2
+    [-1, Conv, [64, 128, 1, 1]],    # 2 p2
+    [-1, C2f, [128, 128, True]],     # 3
+    [-1, Conv, [128, 256, 3, 2]],    # 4 p3  1/4
+    [-1, C2f, [256, 256, True]],     # 5
+    [-1, C2f, [256, 256, True]],     # 6
+    [-1, Conv, [256, 512, 3, 2]],    # 7 p4  1/8
+    [-1, C2f, [512, 512, True]],     # 8
+    [-1, C2f, [512, 512, True]],     # 9
+    [-1, Conv, [512, 1024, 3, 2]],   # 10 p5  1/16
+    [-1, C2f, [1024, 1024, True]],    # 11
+    [-1, SPPF, [1024, 1024, 5]],      # 12
+
+    [-1, nn.Upsample, [None, 2, 'nearest']],      #13  1/8
+    [[-1, 9], Concat, [1]],        #14  # cat backbone P4
+    [-1, C2f, [1536, 512]],       # 15
+
+    [-1, nn.Upsample, [None, 2, 'nearest']],        # 16  1/4
+    [[-1, 6], Concat, [1]],     # 17 # cat backbone P3
+    [-1, C2f, [768, 256]],       # 18
+
+    [-1, Conv, [256, 256, 3, 2]],        # 19  1/8
+    [[-1, 9], Concat, [1]],        # 20
+    [-1, C2f, [768, 512]],       # 21
+
+    [-1, Conv, [512, 512, 3, 2]],        # 22  1/16
+    [[-1, 12], Concat, [1]],        # 23  # cat head P5
+    [-1, C2f, [1536, 1024]],      # 24
+
+    [ [18, 21, 24], Detect,
+      [1, [[3,9,5,11,4,20], [7,18,6,39,12,31], [19,50,38,81,68,157]],
+       [256, 512, 1024]]], #Detection head 25
+
+    # seg drive area
+    [12, nn.Upsample, [None, 2, 'nearest']],  # 26  1/8
+    [[-1, 9], Concat, [1]],  # 27  # cat backbone P4
+    [-1, C2f, [1536, 512]],  # 28
+
+    [-1, nn.Upsample, [None, 2, 'nearest']],  # 29  1/4
+    [[-1, 6], Concat, [1]],  # 30 # cat backbone P3
+    [-1, Conv, [768, 256, 3, 1]],   # 31 1/4 - 2
+
+    [-1, C2f, [256, 256]],  # 32
+    [-1, nn.Upsample, [None, 2, 'nearest']],    # 33 1/2 - 4
+    [-1, Conv, [256, 256, 3, 1]],   # 34  1/2 - 6
+
+    [-1, C2f, [256, 256]],  # 35
+    [-1, Upsample, [None, 2, 'nearest']],  # 36  1 - 12
+    [-1, Conv, [256, 256, 3, 1]],   # 37 1 - 14
+    [-1, C2f, [256, 256]],  # 38
+
+    [-1, Upsample, [None, 2, 'nearest']],  # 39  2 - 28
+    [-1, Conv, [256, 256, 3, 1]],  # 40 2 - 30
+    [-1, C2f, [256, 512]],  # 41
+
+
+
+    #seg lane line
+    [12, nn.Upsample, [None, 2, 'nearest']],  # 42  1/8
+    [[-1, 9], Concat, [1]],  # 43  # cat backbone P4
+    [-1, C2f, [1536, 512]],  # 44
+
+    [-1, nn.Upsample, [None, 2, 'nearest']],  # 45  1/4
+    [[-1, 6], Concat, [1]],  # 46 # cat backbone P3
+    [-1, Conv, [768, 256, 3, 1]],   # 47 1/4 - 2
+
+    [-1, C2f, [256, 256]],  # 48
+    [-1, nn.Upsample, [None, 2, 'nearest']],    # 49 1/2 - 4
+    [-1, Conv, [256, 256, 3, 1]],   # 50  1/2 - 6
+
+    [-1, C2f, [256, 256]],  # 51
+    [-1, Upsample, [None, 2, 'nearest']],  # 52  1 - 12
+    [-1, Conv, [256, 256, 3, 1]],   # 53 1 - 14
+    [-1, C2f, [256, 256]],  # 54
+
+    [-1, Upsample, [None, 2, 'nearest']],  # 55  2 - 28
+    [-1, Conv, [256, 256, 3, 1]],  # 56 2 - 30
+    [-1, C2f, [256, 512]],  # 57
+]
+
+YOLODSn = [
+    [18, 31, 44],   #Det_out_idx, Da_Segout_idx, LL_Segout_idx
+    [-1, Focus, [3, 16, 3]],    # 0 p1
+    [-1, Conv, [16, 32, 3, 2]],     # 1  1/2
+    [-1, Conv, [32, 64, 1, 1]],    # 2 p2
+    [-1, C2f, [64, 64, True]],     # 3
+    [-1, Conv, [64, 128, 3, 2]],    # 4 p3  1/4
+    [-1, C2f, [128, 128, True]],     # 5
+    [-1, Conv, [128, 256, 3, 2]],    # 6 p4  1/8
+    [-1, C2f, [256, 256, True]],     # 7
+    [-1, SPPF, [256, 256, 5]],      # 8
+
+    [-1, nn.Upsample, [None, 2, 'nearest']],        # 9  1/4
+    [[-1, 5], Concat, [1]],     # 10 # cat backbone P3
+    [-1, C2f, [384, 128]],       # 11
+
+    [-1, nn.Upsample, [None, 2, 'nearest']],  # 12 1/2
+    [[-1, 3], Concat, [1]],        # 13 p2
+    [-1, C2f, [192, 256]],       # 14
+
+    [-1, nn.Upsample, [None, 2, 'nearest']],  # 15 1
+    [[-1, 0], Concat, [1]],        # 16  # cat head P1
+    [-1, C2f, [272, 256]],      # 17
+
+    [ [11, 14, 17], Detect,
+      [1, [[3,9,5,11,4,20], [7,18,6,39,12,31], [19,50,38,81,68,157]],
+       [128, 256, 256]]], #Detection head 18
+
+    # seg drive area
+    [8, nn.Upsample, [None, 2, 'nearest']],  # 19  1/4
+    [[-1, 5], Concat, [1]],  # 20 # cat backbone P3
+    [-1, Conv, [384, 256, 3, 1]],   # 21 1/4 - 2
+
+    [-1, C2f, [256, 128]],  # 22
+    [-1, nn.Upsample, [None, 2, 'nearest']],    # 23 1/2 - 4
+    [-1, Conv, [128, 64, 3, 1]],   # 24  1/2 - 6
+
+    [-1, C2f, [64, 32]],  # 25
+    [-1, Upsample, [None, 2, 'nearest']],  # 26  1 - 12
+    [-1, Conv, [32, 16, 3, 1]],   # 27 1 - 14
+    [-1, C2f, [16, 8]],  # 28
+
+    [-1, Upsample, [None, 2, 'nearest']],  # 29  2 - 28
+    [-1, Conv, [8, 4, 3, 1]],  # 30 2 - 30
+    [-1, C2f, [4, 2]],  # 31
+
+
+    #seg lane line
+    [8, nn.Upsample, [None, 2, 'nearest']],  # 19  1/4
+    [[-1, 5], Concat, [1]],  # 20 # cat backbone P3
+    [-1, Conv, [384, 256, 3, 1]],   # 21 1/4 - 2
+
+    [-1, C2f, [256, 128]],  # 22
+    [-1, nn.Upsample, [None, 2, 'nearest']],    # 23 1/2 - 4
+    [-1, Conv, [128, 64, 3, 1]],   # 24  1/2 - 6
+
+    [-1, C2f, [64, 32]],  # 25
+    [-1, Upsample, [None, 2, 'nearest']],  # 26  1 - 12
+    [-1, Conv, [32, 16, 3, 1]],   # 27 1 - 14
+    [-1, C2f, [16, 8]],  # 28
+
+    [-1, Upsample, [None, 2, 'nearest']],  # 29  2 - 28
+    [-1, Conv, [8, 4, 3, 1]],  # 30 2 - 30
+    [-1, C2f, [4, 2]],  # 31
+]
 
 class MCnet(nn.Module):
     def __init__(self, block_cfg, **kwargs):
@@ -509,9 +769,10 @@ class MCnet(nn.Module):
         self.detector_index = -1
         self.det_out_idx = block_cfg[0][0]
         self.seg_out_idx = block_cfg[0][1:]
-        
+
 
         # Build model
+        # print(list(enumerate(block_cfg[1:])))
         for i, (from_, block, args) in enumerate(block_cfg[1:]):
             block = eval(block) if isinstance(block, str) else block  # eval strings
             if block is Detect:
@@ -540,7 +801,7 @@ class MCnet(nn.Module):
             check_anchor_order(Detector)
             self.stride = Detector.stride
             self._initialize_biases()
-        
+
         initialize_weights(self)
 
     def forward(self, x):
@@ -561,8 +822,8 @@ class MCnet(nn.Module):
             cache.append(x if block.index in self.save else None)
         out.insert(0,det_out)
         return out
-            
-    
+
+
     def _initialize_biases(self, cf=None):  # initialize biases into Detect(), cf is class frequency
         # https://arxiv.org/abs/1708.02002 section 3.3
         # cf = torch.bincount(torch.tensor(np.concatenate(dataset.labels, 0)[:, 0]).long(), minlength=nc) + 1.
@@ -574,14 +835,15 @@ class MCnet(nn.Module):
             b.data[:, 5:] += math.log(0.6 / (m.nc - 0.99)) if cf is None else torch.log(cf / cf.sum())  # cls
             mi.bias = torch.nn.Parameter(b.view(-1), requires_grad=True)
 
-def get_net(cfg, **kwargs): 
-    m_block_cfg = YOLOP
+def get_net(cfg, **kwargs):
+    # m_block_cfg = YOLOP
+    m_block_cfg = YOLODSn
     model = MCnet(m_block_cfg, **kwargs)
     return model
 
 
 if __name__ == "__main__":
-    from torch.utils.tensorboard import SummaryWriter
+    # from torch.utils.tensorboard import SummaryWriter
     model = get_net(False)
     input_ = torch.randn((1, 3, 256, 256))
     gt_ = torch.rand((1, 2, 256, 256))
@@ -593,4 +855,4 @@ if __name__ == "__main__":
         print(det.shape)
     print(dring_area_seg.shape)
     print(lane_line_seg.shape)
- 
+
