@@ -10,13 +10,13 @@ _C.WORKERS = 8
 _C.PIN_MEMORY = False
 _C.PRINT_FREQ = 20
 _C.AUTO_RESUME =False       # Resume from the last training interrupt
-_C.NEED_AUTOANCHOR = False      # Re-select the prior anchor(k-means)    When training from scratch (epoch=0), set it to be ture!
+_C.NEED_AUTOANCHOR = True      # Re-select the prior anchor(k-means)    When training from scratch (epoch=0), set it to be ture!
 _C.DEBUG = False
 _C.num_seg_class = 2
 
 # Cudnn related params
 _C.CUDNN = CN()
-_C.CUDNN.BENCHMARK = True
+_C.CUDNN.BENCHMARK = False
 _C.CUDNN.DETERMINISTIC = False
 _C.CUDNN.ENABLED = True
 
@@ -93,7 +93,7 @@ _C.TRAIN.BEGIN_EPOCH = 0
 _C.TRAIN.END_EPOCH = 240
 
 _C.TRAIN.VAL_FREQ = 1
-_C.TRAIN.BATCH_SIZE_PER_GPU =1
+_C.TRAIN.BATCH_SIZE_PER_GPU = 2
 _C.TRAIN.SHUFFLE = True
 
 _C.TRAIN.IOU_THRESHOLD = 0.2
