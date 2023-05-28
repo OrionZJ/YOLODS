@@ -69,7 +69,7 @@ YOLODSn = [
 
 
     #seg lane line
-    [7, nn.Upsample, [None, 2, 'nearest']],  # 19  1/4
+    [8, nn.Upsample, [None, 2, 'nearest']],  # 19  1/4
     [[-1, 5], Concat, [1]],  # 20 # cat backbone P3
     [-1, Conv, [768, 256, 3, 1]],   # 21 1/4 - 2
 
