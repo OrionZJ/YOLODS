@@ -77,6 +77,7 @@ class MultiHeadLoss(nn.Module):
         # Calculate Losses
         nt = 0  # number of targets
         no = len(predictions[0])  # number of outputs
+        # print("no:" + str(no))
         balance = [4.0, 1.0, 0.4] if no == 3 else [4.0, 1.0, 0.4, 0.1]  # P3-5 or P3-6
 
         # calculate detection loss

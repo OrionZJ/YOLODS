@@ -1,4 +1,6 @@
 import math
+import warnings
+
 import numpy as np
 import torch
 import torch.nn as nn
@@ -452,6 +454,88 @@ class Concat(nn.Module):
         for f in x:
             print(f.shape) """
         return torch.cat(x, self.d)
+
+
+activation_table = {'relu':nn.ReLU(),
+                    'silu':nn.SiLU(),
+                    'hardswish':nn.Hardswish()
+                    }
+
+class ConvModule(nn.Module):
+    '''A combination of Conv + BN + Activation'''
+    def __init__(self, in_channels, out_channels, kernel_size, stride, activation_type, padding=None, groups=1, bias=False):
+        super().__init__()
+        if padding is None:
+            padding = kernel_size // 2
+        self.conv = nn.Conv2d(
+            in_channels,
+            out_channels,
+            kernel_size=kernel_size,
+            stride=stride,
+            padding=padding,
+            groups=groups,
+            bias=bias,
+        )
+        self.bn = nn.BatchNorm2d(out_channels)
+        if activation_type is not None:
+            self.act = activation_table.get(activation_type)
+        self.activation_type = activation_type
+
+    def forward(self, x):
+        if self.activation_type is None:
+            return self.bn(self.conv(x))
+        return self.act(self.bn(self.conv(x)))
+
+    def forward_fuse(self, x):
+        if self.activation_type is None:
+            return self.conv(x)
+        return self.act(self.conv(x))
+
+
+class ConvBNReLU(nn.Module):
+    '''Conv and BN with ReLU activation'''
+    def __init__(self, in_channels, out_channels, kernel_size=3, stride=1, padding=None, groups=1, bias=False):
+        super().__init__()
+        self.block = ConvModule(in_channels, out_channels, kernel_size, stride, 'relu', padding, groups, bias)
+
+    def forward(self, x):
+        return self.block(x)
+
+
+class CSPSPPFModule(nn.Module):
+    # CSP https://github.com/WongKinYiu/CrossStagePartialNetworks
+    def __init__(self, in_channels, out_channels, kernel_size=5, e=0.5, block=ConvBNReLU):
+        super().__init__()
+        c_ = int(out_channels * e)  # hidden channels
+        self.cv1 = block(in_channels, c_, 1, 1)
+        self.cv2 = block(in_channels, c_, 1, 1)
+        self.cv3 = block(c_, c_, 3, 1)
+        self.cv4 = block(c_, c_, 1, 1)
+
+        self.m = nn.MaxPool2d(kernel_size=kernel_size, stride=1, padding=kernel_size // 2)
+        self.cv5 = block(4 * c_, c_, 1, 1)
+        self.cv6 = block(c_, c_, 3, 1)
+        self.cv7 = block(2 * c_, out_channels, 1, 1)
+
+    def forward(self, x):
+        x1 = self.cv4(self.cv3(self.cv1(x)))
+        y0 = self.cv2(x)
+        with warnings.catch_warnings():
+            warnings.simplefilter('ignore')
+            y1 = self.m(x1)
+            y2 = self.m(y1)
+            y3 = self.cv6(self.cv5(torch.cat([x1, y1, y2, self.m(y2)], 1)))
+        return self.cv7(torch.cat((y0, y3), dim=1))
+
+
+class SimCSPSPPF(nn.Module):
+    '''CSPSPPF with ReLU activation'''
+    def __init__(self, in_channels, out_channels, kernel_size=5, e=0.5, block=ConvBNReLU):
+        super().__init__()
+        self.cspsppf = CSPSPPFModule(in_channels, out_channels, kernel_size, e, block)
+
+    def forward(self, x):
+        return self.cspsppf(x)
 
 
 class Detect(nn.Module):
