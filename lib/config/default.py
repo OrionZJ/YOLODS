@@ -9,8 +9,8 @@ _C.GPUS = (0,1)
 _C.WORKERS = 8
 _C.PIN_MEMORY = False
 _C.PRINT_FREQ = 20
-_C.AUTO_RESUME =False       # Resume from the last training interrupt
-_C.NEED_AUTOANCHOR = True      # Re-select the prior anchor(k-means)    When training from scratch (epoch=0), set it to be ture!
+_C.AUTO_RESUME = False       # Resume from the last training interrupt
+_C.NEED_AUTOANCHOR = False      # Re-select the prior anchor(k-means)    When training from scratch (epoch=0), set it to be ture!
 _C.DEBUG = False
 _C.num_seg_class = 2
 
@@ -50,10 +50,10 @@ _C.LOSS.LL_IOU_GAIN = 0.2 # lane line iou loss gain
 
 # DATASET related params
 _C.DATASET = CN(new_allowed=True)
-_C.DATASET.DATAROOT = 'E:/PycharmProjects/BDD100K_datasets/images'       # the path of images folder
-_C.DATASET.LABELROOT = 'E:/PycharmProjects/BDD100K_datasets/det_annotations'      # the path of det_annotations folder
-_C.DATASET.MASKROOT = 'E:/PycharmProjects/BDD100K_datasets/da_seg_annotations'                # the path of da_seg_annotations folder
-_C.DATASET.LANEROOT = 'E:/PycharmProjects/BDD100K_datasets/ll_seg_annotations'               # the path of ll_seg_annotations folder
+_C.DATASET.DATAROOT = '/media/orionzj/Data/PycharmProjects/BDD100K_datasets/images'       # the path of images folder
+_C.DATASET.LABELROOT = '/media/orionzj/Data/PycharmProjects/BDD100K_datasets/det_annotations'      # the path of det_annotations folder
+_C.DATASET.MASKROOT = '/media/orionzj/Data/PycharmProjects/BDD100K_datasets/da_seg_annotations'                # the path of da_seg_annotations folder
+_C.DATASET.LANEROOT = '/media/orionzj/Data/PycharmProjects/BDD100K_datasets/ll_seg_annotations'               # the path of ll_seg_annotations folder
 _C.DATASET.DATASET = 'BddDataset'
 _C.DATASET.TRAIN_SET = 'train'
 _C.DATASET.TEST_SET = 'val'
@@ -93,7 +93,7 @@ _C.TRAIN.BEGIN_EPOCH = 0
 _C.TRAIN.END_EPOCH = 240
 
 _C.TRAIN.VAL_FREQ = 1
-_C.TRAIN.BATCH_SIZE_PER_GPU = 2
+_C.TRAIN.BATCH_SIZE_PER_GPU = 3
 _C.TRAIN.SHUFFLE = True
 
 _C.TRAIN.IOU_THRESHOLD = 0.2
