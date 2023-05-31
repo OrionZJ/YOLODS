@@ -12,7 +12,7 @@ from lib.utils import initialize_weights
 # from lib.models.common2 import DepthSeperabelConv2d as Conv
 # from lib.models.common2 import SPP, Bottleneck, BottleneckCSP, Focus, Concat, Detect
 from lib.models.common import Conv, SPP, Bottleneck, BottleneckCSP, Focus, Concat, Detect, SharpenConv, C2f, SPPF, \
-    SimCSPSPPF
+    SimCSPSPPF, SPPFCSPC
 from torch.nn import Upsample
 from lib.utils import check_anchor_order
 from lib.core.evaluate import SegmentationMetric
@@ -85,6 +85,79 @@ YOLODSn = [
     [-1, Upsample, [None, 2, 'nearest']],  # 29  2 - 28
     [-1, Conv, [8, 4, 3, 1]],  # 30 2 - 30
     [-1, C2f, [4, 2]],  # 31
+]
+
+YOLOPs = [
+    [22, 35, 48],  # Det_out_idx, Da_Segout_idx, LL_Segout_idx
+    # [-1, Focus, [3, 32, 3]],    #
+    [-1, Conv, [3, 32, 3, 2]],  # 0  1/2  640->320
+    [-1, Conv, [32, 64, 3, 2]],  # 1  1/4 p2
+    [-1, C2f, [64, 64, True]],  # 2
+    [-1, Conv, [64, 128, 3, 2]],  # 3 p3  1/8
+    [-1, C2f, [128, 128, True]],  # 4
+    [-1, Conv, [128, 256, 3, 2]],  # 5 p4  1/16
+    [-1, C2f, [256, 256, True]],  # 6
+    [-1, Conv, [256, 512, 3, 2]],  # 7 p5  1/32
+    [-1, C2f, [512, 512, True]],  # 8
+    # [-1, SPPF, [512, 512, 5]],
+    [-1, SPPFCSPC, [512, 512, 5]],
+    # [-1, SimCSPSPPF, [512, 512, 5]],  # 9 SimCSPSPPF
+
+    [-1, Upsample, [None, 2, 'nearest']],  # 10  1/16
+    [[-1, 6], Concat, [1]],  # 11 # cat backbone P3
+    [-1, C2f, [768, 256]],  # 12
+
+    [-1, Upsample, [None, 2, 'nearest']],  # 13 1/8
+    [[-1, 4], Concat, [1]],  # 14 cat backbone p2
+    [-1, C2f, [384, 128]],  # 15
+
+    [-1, Conv, [128, 128, 3, 2]],  # 16 1/16
+    [[-1, 12], Concat, [1]],  # 17  # cat p4
+    [-1, C2f, [384, 256]],  # 18
+
+    [-1, Conv, [256, 256, 3, 2]],  # 19 1/32
+    [[-1, 9], Concat, [1]],  # 20  cat sppf
+    [-1, C2f, [768, 512]],  # 21
+
+    [[15, 18, 21], Detect,
+     [1, [[3, 9, 5, 11, 4, 20], [7, 18, 6, 39, 12, 31], [19, 50, 38, 81, 68, 157]],
+      [128, 256, 512]]],  # Detection head 22
+
+    # seg drive area
+    [8, Upsample, [None, 4, 'nearest']],  # 23  1/8
+    [[-1, 4], Concat, [1]],  # 24 # cat backbone P3
+    [-1, Conv, [640, 256, 3, 1]],  # 25 1/8 - 2
+
+    [-1, C2f, [256, 128]],  # 26
+    [-1, Upsample, [None, 2, 'nearest']],  # 27 1/4 - 4
+    [-1, Conv, [128, 64, 3, 1]],  # 28  1/4 - 6
+
+    [-1, C2f, [64, 32]],  # 29
+    [-1, Upsample, [None, 2, 'nearest']],  # 30  1/2 - 12
+    [-1, Conv, [32, 16, 3, 1]],  # 31 1/2 - 14
+    [-1, C2f, [16, 8]],  # 32
+
+    [-1, Upsample, [None, 2, 'nearest']],  # 33  1 - 28
+    [-1, Conv, [8, 4, 3, 1]],  # 34 1 - 30
+    [-1, C2f, [4, 2]],  # 35
+
+    # seg lane line
+    [9, nn.Upsample, [None, 4, 'nearest']],  # 36  1/8
+    [[-1, 4], Concat, [1]],  # 37 # cat backbone P3
+    [-1, Conv, [640, 256, 3, 1]],  # 38 1/8 - 2
+
+    [-1, C2f, [256, 128]],  # 39
+    [-1, nn.Upsample, [None, 2, 'nearest']],  # 40 1/4 - 4
+    [-1, Conv, [128, 64, 3, 1]],  # 41  1/4 - 6
+
+    [-1, C2f, [64, 32]],  # 42
+    [-1, Upsample, [None, 2, 'nearest']],  # 43  1/2 - 12
+    [-1, Conv, [32, 16, 3, 1]],  # 44 1/2 - 14
+    [-1, C2f, [16, 8]],  # 45
+
+    [-1, Upsample, [None, 2, 'nearest']],  # 46  1 - 28
+    [-1, Conv, [8, 4, 3, 1]],  # 47 1 - 30
+    [-1, C2f, [4, 2]],  # 48
 ]
 
 class MCnet(nn.Module):
@@ -163,7 +236,7 @@ class MCnet(nn.Module):
 
 def get_net(cfg, **kwargs):
     # m_block_cfg = YOLOP
-    m_block_cfg = YOLODSn
+    m_block_cfg = YOLOPs
     model = MCnet(m_block_cfg, **kwargs)
     return model
 
