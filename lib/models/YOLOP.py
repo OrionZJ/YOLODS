@@ -50,7 +50,7 @@ YOLODSn = [
        [128, 256, 512]]], #Detection head 18
 
     # seg drive area
-    [7, nn.Upsample, [None, 2, 'nearest']],  # 19  1/4
+    [8, nn.Upsample, [None, 2, 'nearest']],  # 19  1/4
     [[-1, 5], Concat, [1]],  # 20 # cat backbone P3
     [-1, Conv, [768, 256, 3, 1]],   # 21 1/4 - 2
 
@@ -124,7 +124,7 @@ YOLOPs = [
       [128, 256, 512]]],  # Detection head 22
 
     # seg drive area
-    [8, Upsample, [None, 4, 'nearest']],  # 23  1/8
+    [9, Upsample, [None, 4, 'nearest']],  # 23  1/8
     [[-1, 4], Concat, [1]],  # 24 # cat backbone P3
     [-1, Conv, [640, 256, 3, 1]],  # 25 1/8 - 2
 
@@ -236,7 +236,7 @@ class MCnet(nn.Module):
 
 def get_net(cfg, **kwargs):
     # m_block_cfg = YOLOP
-    m_block_cfg = YOLOPs
+    m_block_cfg = YOLODSn
     model = MCnet(m_block_cfg, **kwargs)
     return model
 
